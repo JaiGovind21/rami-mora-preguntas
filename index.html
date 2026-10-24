@@ -1,1 +1,340 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Dejá tu consulta para los encuentros con Rami Mora."><title>Rami Mora | Preguntas para el encuentro</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/style.css"><script defer src="/app.js?v=20261024-mobile-input"></script></head><body><div id="root"></div></body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canasta de Preguntas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+
+  <!-- VISTA 1: PARTICIPANTE (#participar) -->
+  <main id="vista-participar" class="max-w-xl mx-auto px-4 py-10 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <div class="mb-6 text-center">
+        <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-2">
+          Reunión de Zoom • En Vivo
+        </span>
+        <h1 class="text-2xl font-bold text-white">Canasta de Preguntas</h1>
+        <p class="text-slate-400 text-sm mt-1">
+          Dejá tu pregunta, agradecimiento o crítica constructiva. Lo que escribas es privado y solo lo verá el anfitrión.
+        </p>
+      </div>
+
+      <form id="form-mensaje" class="space-y-5">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            1. ¿Qué querés enviar?
+          </label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" data-tipo="Pregunta" class="tipo-btn py-2.5 px-3 rounded-xl border text-sm font-medium transition bg-indigo-600 border-indigo-500 text-white">
+              💬 Pregunta
+            </button>
+            <button type="button" data-tipo="Agradecimiento" class="tipo-btn py-2.5 px-3 rounded-xl border text-sm font-medium transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+              🙏 Agradecimiento
+            </button>
+            <button type="button" data-tipo="Crítica constructiva" class="tipo-btn py-2.5 px-3 rounded-xl border text-sm font-medium transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
+              💡 Crítica
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label for="contenido" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            2. Tu mensaje
+          </label>
+          <textarea
+            id="contenido"
+            rows="4"
+            required
+            placeholder="Escribí acá tu mensaje..."
+            class="w-full rounded-xl bg-slate-950 border border-slate-800 p-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          ></textarea>
+        </div>
+
+        <div>
+          <label for="autor" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            3. Tu nombre (Opcional, si lo dejás vacío sale Anónimo)
+          </label>
+          <input
+            id="autor"
+            type="text"
+            placeholder="Anónimo"
+            class="w-full rounded-xl bg-slate-950 border border-slate-800 p-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        <button
+          id="btn-enviar"
+          type="submit"
+          class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg transition"
+        >
+          Enviar mensaje
+        </button>
+      </form>
+
+      <div id="alerta-exito" class="hidden mt-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-center text-sm">
+        ✅ ¡Mensaje enviado! Ya le llegó al anfitrión.
+      </div>
+    </div>
+  </main>
+
+  <!-- VISTA 2: MODERADOR / ANFITRIÓN (#moderador) -->
+  <main id="vista-moderador" class="max-w-5xl mx-auto px-4 py-8 hidden">
+    <!-- Pantalla de PIN -->
+    <div id="bloqueo-pin" class="max-w-sm mx-auto mt-16 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-2xl">
+      <h2 class="text-xl font-bold mb-2">Acceso Moderador / Anfitrión</h2>
+      <p class="text-slate-400 text-sm mb-4">Ingresá el PIN para ver las preguntas en vivo</p>
+      <input
+        id="input-pin"
+        type="password"
+        maxlength="4"
+        placeholder="••••"
+        class="w-full text-center text-2xl tracking-widest rounded-xl bg-slate-950 border border-slate-800 p-3 mb-4 focus:outline-none focus:border-indigo-500"
+      />
+      <button id="btn-pin" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold">
+        Entrar al panel
+      </button>
+      <p id="error-pin" class="text-rose-400 text-xs mt-3 hidden">PIN incorrecto, probá de nuevo.</p>
+    </div>
+
+    <!-- Panel en Vivo -->
+    <div id="panel-vivo" class="hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+        <div>
+          <h1 class="text-xl font-bold">Panel en Vivo • Canasta de Preguntas</h1>
+          <p class="text-xs text-slate-400">Los mensajes aparecen automáticamente en tiempo real</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button data-filtro="Todos" class="filtro-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">Todos</button>
+          <button data-filtro="Destacados" class="filtro-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">⭐ Destacados</button>
+          <button data-filtro="Pregunta" class="filtro-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">💬 Preguntas</button>
+          <button data-filtro="Agradecimiento" class="filtro-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">🙏 Agradecimientos</button>
+          <button data-filtro="Crítica constructiva" class="filtro-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">💡 Críticas</button>
+          <button id="btn-exportar" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium">📥 Descargar Excel/CSV</button>
+        </div>
+      </div>
+
+      <div id="lista-mensajes" class="grid gap-4 md:grid-cols-2"></div>
+    </div>
+  </main>
+
+  <!-- MODAL MODO FOCO -->
+  <div id="modal-foco" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-6 z-50">
+    <div class="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-3xl p-8 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <span id="foco-tipo" class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300"></span>
+        <button id="cerrar-foco" class="text-slate-400 hover:text-white text-sm">✕ Cerrar</button>
+      </div>
+      <p id="foco-contenido" class="text-2xl md:text-3xl font-medium leading-relaxed text-white my-6"></p>
+      <p id="foco-autor" class="text-sm text-slate-400"></p>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://fptwvphvhnsuojxzbqpg.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdHd2cGh2aG5zdW9qeHpicXBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NzQ3MzIsImV4cCI6MjEwODM1MDczMn0.X1ySesCrrlcZBdStrmx-22H1-UsiRpq4O8JxV2dt8QM";
+    const PIN_MODERADOR = "1234";
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let tipoSeleccionado = "Pregunta";
+    let mensajesCache = [];
+    let filtroActual = "Todos";
+
+    // Cambio de vista según el link (#participar o #moderador)
+    function actualizarVista() {
+      const hash = window.location.hash;
+      const vParticipar = document.getElementById("vista-participar");
+      const vModerador = document.getElementById("vista-moderador");
+
+      if (hash === "#moderador") {
+        vParticipar.classList.add("hidden");
+        vModerador.classList.remove("hidden");
+      } else {
+        vModerador.classList.add("hidden");
+        vParticipar.classList.remove("hidden");
+      }
+    }
+    window.addEventListener("hashchange", actualizarVista);
+    actualizarVista();
+
+    // Botones de categoría
+    document.querySelectorAll(".tipo-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tipoSeleccionado = btn.dataset.tipo;
+        document.querySelectorAll(".tipo-btn").forEach((b) => {
+          b.className = "tipo-btn py-2.5 px-3 rounded-xl border text-sm font-medium transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700";
+        });
+        btn.className = "tipo-btn py-2.5 px-3 rounded-xl border text-sm font-medium transition bg-indigo-600 border-indigo-500 text-white";
+      });
+    });
+
+    // Enviar pregunta a Supabase
+    document.getElementById("form-mensaje").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-enviar");
+      const contenido = document.getElementById("contenido").value.trim();
+      const autor = document.getElementById("autor").value.trim() || "Anónimo";
+      if (!contenido) return;
+
+      btn.disabled = true;
+      btn.textContent = "Enviando...";
+
+      const { error } = await supabaseClient
+        .from("mensajes")
+        .insert([{ tipo: tipoSeleccionado, contenido, autor }]);
+
+      btn.disabled = false;
+      btn.textContent = "Enviar mensaje";
+
+      if (!error) {
+        document.getElementById("contenido").value = "";
+        const alerta = document.getElementById("alerta-exito");
+        alerta.classList.remove("hidden");
+        setTimeout(() => alerta.classList.add("hidden"), 4000);
+      } else {
+        alert("Hubo un error al enviar. Verificá que hayas creado la tabla 'mensajes' en Supabase.");
+      }
+    });
+
+    // Desbloqueo con PIN
+    document.getElementById("btn-pin").addEventListener("click", () => {
+      const pin = document.getElementById("input-pin").value;
+      if (pin === PIN_MODERADOR) {
+        document.getElementById("bloqueo-pin").classList.add("hidden");
+        document.getElementById("panel-vivo").classList.remove("hidden");
+        iniciarModerador();
+      } else {
+        document.getElementById("error-pin").classList.remove("hidden");
+      }
+    });
+
+    async function iniciarModerador() {
+      const { data } = await supabaseClient
+        .from("mensajes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        mensajesCache = data;
+        renderizarMensajes();
+      }
+
+      supabaseClient
+        .channel("canal-mensajes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "mensajes" }, async () => {
+          const { data: actualizados } = await supabaseClient
+            .from("mensajes")
+            .select("*")
+            .order("created_at", { ascending: false });
+          if (actualizados) {
+            mensajesCache = actualizados;
+            renderizarMensajes();
+          }
+        })
+        .subscribe();
+    }
+
+    function renderizarMensajes() {
+      const contenedor = document.getElementById("lista-mensajes");
+      contenedor.innerHTML = "";
+
+      const filtrados = mensajesCache.filter((m) => {
+        if (filtroActual === "Todos") return true;
+        if (filtroActual === "Destacados") return m.destacado;
+        return m.tipo === filtroActual;
+      });
+
+      if (filtrados.length === 0) {
+        contenedor.innerHTML = `<p class="text-slate-500 text-sm col-span-2 text-center py-10">Todavía no llegaron mensajes en esta sección.</p>`;
+        return;
+      }
+
+      filtrados.forEach((m) => {
+        const card = document.createElement("div");
+        card.className = `p-5 rounded-2xl border transition ${
+          m.leido ? "bg-slate-900/40 border-slate-800/60 opacity-60" : "bg-slate-900 border-slate-800"
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-indigo-300">${m.tipo}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="alternarDestacado(${m.id}, ${m.destacado})" title="Destacar" class="text-lg">${m.destacado ? "⭐" : "☆"}</button>
+              <button onclick="abrirFoco(${m.id})" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700">🔍 Agrandar</button>
+              <button onclick="alternarLeido(${m.id}, ${m.leido})" title="Marcar como leído" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700">${m.leido ? "↩️" : "✅"}</button>
+            </div>
+          </div>
+          <p class="text-slate-100 text-base mb-3 whitespace-pre-wrap">${m.contenido}</p>
+          <div class="text-xs text-slate-400 flex justify-between">
+            <span>👤 ${m.autor}</span>
+            <span>${new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        `;
+        contenedor.appendChild(card);
+      });
+    }
+
+    window.alternarDestacado = async (id, estado) => {
+      await supabaseClient.from("mensajes").update({ destacado: !estado }).eq("id", id);
+    };
+
+    window.alternarLeido = async (id, estado) => {
+      await supabaseClient.from("mensajes").update({ leido: !estado }).eq("id", id);
+    };
+
+    window.abrirFoco = (id) => {
+      const m = mensajesCache.find((x) => x.id === id);
+      if (!m) return;
+      document.getElementById("foco-tipo").textContent = m.tipo;
+      document.getElementById("foco-contenido").textContent = m.contenido;
+      document.getElementById("foco-autor").textContent = `👤 ${m.autor}`;
+      const modal = document.getElementById("modal-foco");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    };
+
+    document.getElementById("cerrar-foco").addEventListener("click", () => {
+      const modal = document.getElementById("modal-foco");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    });
+
+    document.querySelectorAll(".filtro-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        filtroActual = btn.dataset.filtro;
+        document.querySelectorAll(".filtro-btn").forEach((b) => {
+          b.className = "filtro-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium";
+        });
+        btn.className = "filtro-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium";
+        renderizarMensajes();
+      });
+    });
+
+    document.getElementById("btn-exportar").addEventListener("click", () => {
+      if (!mensajesCache.length) return;
+      const filas = [
+        ["ID", "Fecha", "Tipo", "Autor", "Contenido", "Destacado", "Leido"],
+        ...mensajesCache.map((m) => [
+          m.id,
+          m.created_at,
+          m.tipo,
+          `"${(m.autor || "").replace(/"/g, '""')}"`,
+          `"${(m.contenido || "").replace(/"/g, '""')}"`,
+          m.destacado,
+          m.leido
+        ])
+      ];
+      const csv = filas.map((e) => e.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "canasta-de-preguntas.csv";
+      a.click();
+    });
+  </script>
+</body>
+</html>
